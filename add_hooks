@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# add the whamcloud hooks to .git hooks for lustre
+# commit-msg
+# prepare-commit-msg
+# if they are already in the correct directory but suffixed
+# with deactivation suffix ($SUFFIX) remove the suffix so they become active
+# if they aren't in the hooks sirectory at all, get them from
+# the lustre source
+
+SUFFIX=deactivated
+LUSTRE=~/lustre-release
+HOOKS_DIR=$LUSTRE/.git/hooks
+CONTRIB_HOOKS_DIR=$LUSTRE/contrib/git-hooks
+
+add_hook_file() {
+    # check if hook file exists, if so do nothing
+    if [ -e "$HOOKS_DIR/$1" ]
+    then
+	echo "$1 already exists in $HOOKS_DIR"
+
+    # if $SUFFIX activate it
+    elif [ -e "$HOOKS_DIR/$1.$SUFFIX" ]
+    then
+	mv "$HOOKS_DIR/$1.$SUFFIX" "$HOOKS_DIR/$1"
+
+    # if non-existent, copy it from the lustre source 
+    else
+	cp "$CONTRIB_HOOKS_DIR/$1" "$HOOKS_DIR/$1"
+    fi
+}
+
+#
+# main
+#
+
+add_hook_file "commit-msg"
+add_hook_file "prepare-commit-msg"
+
+ 

@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# run quota performance test to get differenct between setting 
+# and not setting valid bit
+# the QMT may have to go ask the OSTs whenthe valid bit is not set
+# which hurts performance
+
+# parallel file system
+PFS=/p/lquake/defazio1
+
+VALID=0
+
+ITERS=1
+
+add_and_remove() {
+    
+    touch $PFS/{a..z}{a..z}
+
+    rm $PFS/{a..z}{a..z}
+}
+
+
+#print_quotactl_time() {
+#    
+#}
+
+#
+# main
+#
+
+### for i in {1..100}
+### do
+###     add_and_remove
+###     print_quotactl_time
+### done
+
+for i in {1..100}
+do
+    add_and_remove
+    /g/g0/defazio1/lustre-release/lustre/utils/test_quota $PFS defazio1 $ITERS $VALID
+done
+

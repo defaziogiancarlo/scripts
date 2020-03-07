@@ -1,0 +1,10 @@
+---
+name: "add-hooks"
+interpreter: "bash"
+description: "Activate the Lustre git-hooks that are used when making
+a commit that will be submmitted to lustre."
+
+
+
+
+

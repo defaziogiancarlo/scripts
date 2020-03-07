@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+# lcp - Luster Check Patch
+
+# get the filename from the commandline
+my $source_file = $ARGV[0] or die 'no input file given';
+
+# verify that the path to Lustre is in the environment
+unless (exists($ENV{'LUSTRE_WC'})) {
+    die 'cannot find Lustre repo';
+}
+my $lustre_path = $ENV{'LUSTRE_WC'};
+
+# verify that the checkpath scripts exists
+my $checkpatch_path = $lustre_path . '/contrib/scripts/checkpatch.pl';
+unless (-x $checkpatch_path) {
+    die 'no checkpath.pl executable found';
+}
+
+system "$checkpatch_path -f $source_file";
+

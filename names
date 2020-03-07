@@ -1,0 +1,10 @@
+#!/bin/awk -f
+
+($6 == "Feb") {
+	sum += $5
+}
+END {
+	print sum
+}
+
+

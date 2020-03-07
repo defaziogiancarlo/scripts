@@ -1,0 +1,12 @@
+#!/usr/bin/perl
+
+# remove all trailing white space from a file
+
+use warnings;
+use strict;
+
+print "name: ";
+my $name = <STDIN>;
+chomp $name;
+
+print "your name is $name\n";

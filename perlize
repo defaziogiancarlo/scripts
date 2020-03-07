@@ -1,0 +1,31 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+# verify there's a possible file name and get it
+if (@ARGV < 1) {
+    die "must have filename argument"
+} 
+my $filename = $ARGV[0];
+chomp $filename;
+
+# get file contents
+open my $in, '<', $filename or die "could not open '$filename': $!";
+local $/ = undef;
+my @lines = <$in>;
+close $in;
+
+
+# check the first line for shebang
+if ($lines[0] =~ m'\#!/.*/.*pearl.*') {
+    print "shebang works\n";
+}
+
+foreach (@lines) {
+    print $_;
+}
+# check for #!
+
+
+# check for use strict and use warnings

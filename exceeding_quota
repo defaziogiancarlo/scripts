@@ -1,0 +1,12 @@
+#!/usr/bin/python3
+
+import sys
+import llapi
+
+if len(sys.argv) != 3:
+   print('wrong number of arguments: must specify \'fsname\' and \'uid\'')
+   exit(1)
+fsname, uid = sys.argv[1], int(sys.argv[2])
+print(llapi.exceeding_lustre_quota(fsname, uid))
+
+

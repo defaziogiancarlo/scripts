@@ -1,0 +1,84 @@
+#!/bin/bash
+
+
+## description
+# make a git branch whamcloud ready
+# first pull master from whamcloud
+# then rebase the current branch on whamcloud
+# turn on lustre git hooks
+# then rebase the current branch so that all your commits are condensed
+# turn off luster git hooks
+
+
+
+
+# copy-pasted from the whamcloud wiki, note that ${USER} is substituted from env
+# a password will still be required
+# PUSH_COMMAND="git push ssh://${USER}@review.whamcloud.com:29418/fs/lustre-release HEAD:refs/for/master"
+
+# push_to_whamcloud_master() {
+#     $PUSH_COMMAND
+# }
+
+
+
+
+#
+# main
+#
+
+# check if you're in whamcloud lustre tree, $LUSTRE_WC should be in env
+if [ $(pwd) != $LUSTRE_WC ]
+then
+    echo "$(basename $0): cannot call from outside of whamcloud lustre tree: $LUSTRE_WC"
+    exit 1
+else
+    echo "in correct lustre rooted at $LUSTRE_WC"
+fi
+
+CURRENT_BRANCH= basename $(git symbolic-ref -q HEAD)
+
+
+# switch over to master
+# if your repo isn't set up right (such as uncommited changes) this will fail
+git checkout master || exit 1
+
+# pull down the lastest
+git pull || exit 1
+
+# go back to the branch you were at
+git checkout $CURRENT_BRANCH || exit 1
+
+# rebase the current branch on master
+git rebase master || exit 1
+
+# find the most recent commit that's not mine
+#   find my git email and make sure it's my work email
+GIT_EMAIL=$(git config user.email)
+if [ "x$GIT_EMAIL" = "x" ]
+then
+    echo "no git email found in environment"
+    exit 1
+elif ! [[ $GIT_EMAIL =~ "llnl"  ]]
+then
+    echo "this doesn't look like your work email"
+    exit 1
+fi
+
+# find the commit to rebase to
+REBASE_COMMIT=$(rebase-target $GIT_EMAIL)
+
+
+add_hooks
+
+# start an interactive rebase
+git rebase -i $REBASE_COMMIT
+
+remove_hooks
+    
+
+
+
+
+
+

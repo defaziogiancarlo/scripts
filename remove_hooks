@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# deactivate the whamcloud (or any other) git hooks if they exist
+# by adding $SUFFIX to the file names
+# commit-msg
+# prepare-commit-msg
+# add ".deactivated" to them
+
+SUFFIX=deactivated
+LUSTRE=~/lustre-release
+HOOKS_DIR=$LUSTRE/.git/hooks
+
+remove_hook_file() {
+    if [ -e "$HOOKS_DIR/$1" ]
+    then
+	mv "$HOOKS_DIR/$1" "$HOOKS_DIR/$1.$SUFFIX"	
+    fi
+}
+
+remove_hook_file "commit-msg"
+remove_hook_file "prepare-commit-msg"

@@ -1,0 +1,33 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use v5.16;
+
+# description:
+# find the most recent commit not made by the given email address
+# print the commit hash
+# note that "recent" considers commit order, not commit date
+
+#
+# args:
+# $email = $ARGV[0]  
+# the email to compare against
+#
+
+# verify at least on argument, any subsequent arguments are ignored
+$ARGV[0] == 1 || die "must give 1 argument: user email";
+my $useremail = $ARGV[0];
+
+# get a git log formatted <user.email> <hash>
+open(GITLOG, "git --no-pager log --pretty=format:'%ae %H' |") || print "no dice\n";
+
+# find the first line that does not have $useremail
+# and print its $hash
+while (<GITLOG>) {
+    my ($logemail, $hash) = split;
+    if ($logemail ne $useremail) {
+	print $hash;
+	exit;
+    }
+}

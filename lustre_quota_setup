@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# run with sudo
+
+#
+# Set up lustre on a test machine
+# purpose is for dealing with quotas
+#
+
+LUSTRE=/g/g0/defazio1/lustre-release
+LCTL=$LUSTRE/lustre/utils/lctl
+LFS=$LUSTRE/lustre/utils/lfs
+LLMOUNT=$LUSTRE/test/llmount.sh
+
+
+# check if this is slag3, if not don't break whatever machine this is
+if [ $HOSTNAME != "slag3" ]; then
+    echo "wrong host, this is not slag3"
+    exit
+fi
+
+
+# check if lustre is already mounted, if not mount it
+if [ -z "$(lsmod | grep lustre)" ]; then
+    $LLMOUNT || { echo "failed to mount lustre"; exit; }
+else
+    echo "lustre is already mounted"
+fi
+
+# check if /mnt/lustre exists, if so make it writable
+if [ -d "/mnt/lustre" ]; then
+    chmod 0777 /mnt/lustre
+else
+    echo "mnt/lustre does not exist"
+    exit
+fi
+
+# set up debug to show quota operations
+$LCTL set_param debug=-1
+$LCTL set_param subsystem_debug=lquota
+$LCTL dk /tmp/debug.1
+
+# set up quotas for me
+$LCTL conf_param lustre.quota.ost=u
+$LFS setquota -u defazio1 -b 20M -B 30M /mnt/lustre
+$LFS setquota -t -u --block-grace 2h /mnt/lustre
+$LCTL dk /tmp/debug.2
+
+# get some log files made
+dd if=/mnt/lustre/file count=10
+$LCTL dk /tmp/debug.3
+$LFS quota -u defazio1 /mnt/lustre
+$LCTL dk /tmp/debug.4
+

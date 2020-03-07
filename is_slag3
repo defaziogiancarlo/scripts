@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# check if this is slag3, if not don't break opal
+if [ "x$HOSTNAME" != "xslag3" ]; then
+   echo "wrong host, this is not slag3";
+   exit
+else	
+    echo "this is slag3"
+fi

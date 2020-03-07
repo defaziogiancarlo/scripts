@@ -1,0 +1,6 @@
+#!/bin/bash
+
+format="%5d.%d\n"
+format=$format$format
+
+printf $format $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM | tee ~/rr

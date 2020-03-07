@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# library of functions that are meant to be used in pipelines
+# composed into larger functions in the bottom half
+
+# grab usernames and uids from the passwd file
+usernames() {
+    awk 'split(0,a,":"); printf "%s\n", a[1]}'
+} <&0
+
+# grab usernames and uids from the passwd file
+uids() {
+    awk 'split(0,a,":"); printf "%s\n", a[3]}'
+} <&0
+
+
+# grab usernames and uids from the passwd file
+# users with low uids (<1000) aren't real poepl and
+# probably aren't using lustre
+usernames_and_uids() {
+    awk 'split(0,a,":"); {if (a[3] > 1000) printf "%s %s\n", a[0], a[3]}}'
+} <&0
+
+# the fist awk line turns a list of user names into a list of 
+# argument lines for lfs
+# the user names should be separated by newlines
+#
+# the next starts lfs in iteractive mode so it can 
+# take a batch of single line inputs
+#
+# perl is used to strip leading white space because my awk and sed versions
+# weren't working, and leading whitespace was confusing the last awk line
+#
+# finally awk checks for a '*' on the kybtes used field, indicating 
+# that the user is exceeding a quota
+#
+# yes I know I could use fewer processes
+find_offenders() {
+    awk '{printf "quota -q -u %s /mnt/lustre\n", $1}'    | 
+    /g/g0/defazio1/lustre-release/lustre/utils/lfs       |
+    perl -pe 's/\s+//'                                   | 
+    awk '{if(match($2, /\*/)) {print 1} else {print 0}}'
+} <&0  
+

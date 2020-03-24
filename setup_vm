@@ -1,0 +1,168 @@
+#!/bin/bash
+
+# set up a vm for lustre
+# this script is to be run on the vm, it doesn't make the vm
+# assumes the vm is centos, has internet
+
+#
+# using instructions from
+# https://wiki.whamcloud.com/pages/viewpage.action?pageId=54428329
+#
+
+APPS = python3 openssh-server git emacs-nox
+
+
+
+
+# make a bin
+if [ ! -e ~/bin ]; then
+    mkdir ~/bin
+fi
+
+
+
+# get git and pull down my scripts
+sudo yum install git -y
+git clone https://github.com/defaziogiancarlo/scripts.git
+
+# make all the scripts executable and put them where they belong
+chmod u+x scripts/*
+mv scripts/.* ~
+
+source ~/.bashrc
+
+#
+# using instructions from
+# https://wiki.whamcloud.com/pages/viewpage.action?pageId=54428329
+#
+
+# get all the needed tools
+yum -y install automake xmlto asciidoc elfutils-libelf-devel \
+    zlib-devel binutils-devel newt-devel python-devel hmaccalc \
+    perl-ExtUtils-Embed rpm-build make gcc redhat-rpm-config \
+    patchutils git
+
+# get some more dependencies
+yum -y install xmlto asciidoc elfutils-libelf-devel zlib-devel \
+    binutils-devel newt-devel python-devel hmaccalc \
+    perl-ExtUtils-Embed bison elfutils-devel audit-libs-devel \
+    kernel-devel libattr-devel libuuid-devel libblkid-devel \
+    libselinux-devel libudev-devel
+
+# some more dependencies needed for newer kernels than the online guide
+# rpmbuild fails further on without these
+yum -y install java-devel python-docutils
+
+
+# the original address given at //wiki.whamcloud.com/pages/viewpage.action?pageId=54428329
+# didn't work, this address may have to be updated periodically
+sudo rpm -ivh https://dl.fedoraproject.org/pub/epel/7/x86_64/Packages/e/epel-release-7-12.noarch.rpm
+
+# install some more packagages
+yum -y install pesign numactl-devel pciutils-devel ncurses-devel libselinux-devel fio
+
+
+# get the lustre source
+git clone git://git.whamcloud.com/fs/lustre-release.git
+cd lustre-release
+
+# run autogen
+sh ./autogen.sh
+
+# set up a place to put the kernel source
+cd $HOME
+mkdir -p kernel/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+
+# important for the next step, causes kernel.spec to be created
+cd kernel
+echo '%_topdir %(echo $HOME)/kernel/rpmbuild' > ~/.rpmmacros
+
+# install the kernel source
+# will have to update address from
+# https://wiki.whamcloud.com/pages/viewpage.action?pageId=54428329
+# pretty sure this should not be done with root, otherwise the ~/.rpmmacros
+# file isn't read, unless it was also made by root
+rpm -ivh \
+http://vault.centos.org/7.7.1908/updates/Source/SPackages/kernel-3.10.0-1062.9.1.el7.src.rpm
+
+# prepare the source using rpmbuild
+cd ~/kernel/rpmbuild
+rpmbuild -bp --target=$(uname -m) ./SPECS/kernel.spec
+
+## put all the lustre kernel patches into one big patch
+# first destroy any exiting patch, which is assumed to be in ~
+cd ~
+rm -f ~/lustre-kernel-x86_64-lustre.patch
+cd ~/lustre-release/lustre/kernel_patches/series
+for patch in $(<"3.10-rhel7.7.series")
+do
+    patch_file="$HOME/lustre-release/lustre/kernel_patches/patches/${patch}"
+    cat "${patch_file}" >> "$HOME/lustre-kernel-x86_64-lustre.patch"
+done    
+
+# copy the kernel patch into the rpm build tree
+cp ~/lustre-kernel-x86_64-lustre.patch ~/kernel/rpmbuild/SOURCES/patch-3.10.0-lustre.patch
+	     
+#### THIS SECTION REQUIRES AN EXTERNAL SCRIPT
+# edit the kernel.spec file
+# this is done by a python script
+# finds lines and adds lines
+#####
+
+# overwrite the kernel config with the one from lustre
+# version number will change
+echo '# x86_64' > ~/kernel/rpmbuild/SOURCES/kernel-3.10.0-x86_64.config
+cat ~/lustre-release/lustre/kernel_patches/kernel_configs/kernel-3.10.0-3.10-rhel7.7-x86_64.config >> ~/kernel/rpmbuild/SOURCES/kernel-3.10.0-x86_64.config
+
+# start building the kernel with rpmbuild
+# the --without kabichk is from the webpage comments
+cd ~/kernel/rpmbuild
+buildid="_lustre" # Note: change to any string that identify your work
+rpmbuild -ba --with firmware --target x86_64 --with baseonly --without kabichk \
+	 --define "buildid ${buildid}" \
+	 ~/kernel/rpmbuild/SPECS/kernel.spec
+
+# install the new kernel
+PKG_PATH=~/kernel/rpmbuild/RPMS/x86_64
+rpm -ivh $PKG_PATH/kernel-3.10.0-1062.9.1.el7_lustre.x86_64.rpm $PKG_PATH/kernel-devel-3.10.0-1062.9.1.el7_lustre.x86_64.rpm
+
+
+# restart and check that the new kernel is installed
+sudo shutdown -r now
+uname -r
+
+# get some stuff needed for lustre configure and make
+sudo yum install -y libyaml-devel openmpi-devel #openssk-devel  
+
+
+# get the e2fsprogs from whamcloud
+sudo cat <<EOF > 
+/etc/yum.repos.d/e2fsprogs.repo
+[e2fsprogs-el7-x86_64]
+name=e2fsprogs-el7-x86_64
+baseurl=https://downloads.whamcloud.com/public/e2fsprogs/latest/el7/
+enabled=1
+priority=1
+EOF
+
+# nogpgcheck cause these aren't from the noraml repo
+sudo yum update --nogpgcheck e2fsprogs e2fsprogs-devel
+
+# go to lustre and configure
+cd ~/lustre-release
+./configure
+
+# make lustre
+make -j12
+
+# disable selinux
+# go to /etc/selinux/config
+# and change enforcing to disabled
+
+## put non-loopback address for machine
+# set a hostname
+sudo hostnamectl set-hostname vmlustre
+emacs /etc/hosts
+192.168.2.20 vmlustre # nothing special about this ip address
+
+# do llmount.sh
